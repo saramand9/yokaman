@@ -3,7 +3,7 @@ package yokaman
 
 import (
 	"fmt"
-	"skdtest/yokaman/service"
+	"yokaman/service"
 
 	//"metris-cli-tcp4/yokaman/service"
 	"sync"
