@@ -1,5 +1,5 @@
 // 用于基本通讯，注册等 轻量请求
-package service
+package yokaman
 
 import (
 	"bytes"

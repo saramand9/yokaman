@@ -1,6 +1,6 @@
 // 用于数据通讯，性能指标等高性能通讯
 
-package service
+package yokaman
 
 import (
 	"bytes"

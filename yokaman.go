@@ -3,9 +3,6 @@ package yokaman
 
 import (
 	"fmt"
-	"github.com/saramand9/yokaman/service"
-	//"yokaman/service"
-	//"metris-cli-tcp4/yokaman/service"
 	"sync"
 	"time"
 )
@@ -24,7 +21,7 @@ type YoKaMan struct {
 
 	cache *Cache
 
-	metricsNetCli *service.MetricsNetCli
+	metricsNetCli *MetricsNetCli
 	totalpkg      int64
 	totalpkgrecv  int64
 }
@@ -36,7 +33,7 @@ func YoKaManCli() *YoKaMan {
 	once.Do(func() {
 		instance = &YoKaMan{
 			cache:         NewCache(),
-			metricsNetCli: service.NewMetricsNetCli(),
+			metricsNetCli: NewMetricsNetCli(),
 			totalpkg:      0,
 			totalpkgrecv:  0,
 		}
@@ -77,21 +74,21 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	id, err := cli.cache.Get(m.Trans)
 	//如果本地没有映射关系，需要跟svr去注册， 本地没有映射关系，则从服务器同步
 	if err != nil {
-		id, err = service.Register(m.Trans, uint32(cli.testid))
+		id, err = Register(m.Trans, uint32(cli.testid))
 		if err != nil {
 			return err
 		}
 		cli.cache.Set(m.Trans, id)
 	}
 
-	metrics := service.RequestMetrics{
+	metrics := RequestMetrics{
 		Transid: int8(id),
 		Start:   m.Reqtime,
 		End:     m.Resptime,
 		Code:    int8(m.Code),
 		Count:   1,
 	}
-	service.Metrics2send <- metrics
+	Metrics2send <- metrics
 	return nil
 }
 
@@ -99,18 +96,18 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 func (cli *YoKaMan) Start() error {
 
 	go cli.metricsNetCli.Run()
-	metrictBuffSize := service.GetNetStructSize(service.RecodeMetrics{}) - service.GetNetStructSize(service.Protohead{})
+	metrictBuffSize := GetNetStructSize(RecodeMetrics{}) - GetNetStructSize(Protohead{})
 
-	for v := range service.Metrics2send {
+	for v := range Metrics2send {
 		cli.totalpkg++
 		if cli.totalpkg%1000000 == 0 {
 			fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)
 		}
 
-		pkg2send := service.RecodeMetrics{
-			Protohead: service.Protohead{
+		pkg2send := RecodeMetrics{
+			Protohead: Protohead{
 				Len:        int8(metrictBuffSize),
-				Protocolid: service.ProtoRequestMetrics,
+				Protocolid: ProtoRequestMetrics,
 			},
 			Testid:         cli.testid,
 			Nodeid:         cli.nodeid,
