@@ -3,8 +3,8 @@ package yokaman
 
 import (
 	"fmt"
-	"yokaman/service"
-
+	"github.com/saramand9/yokaman/service"
+	//"yokaman/service"
 	//"metris-cli-tcp4/yokaman/service"
 	"sync"
 	"time"
