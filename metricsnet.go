@@ -115,6 +115,8 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []RequestMetrics */ ) {
 				if time.Since(m.lastPkgIn) > time.Duration(time.Millisecond*MaxLatency) {
 					m.realSend()
 					m.reset()
+				} else {
+					time.Sleep(time.Nanosecond) //长期无数据，释放cpu
 				}
 				break
 			}
@@ -123,13 +125,14 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []RequestMetrics */ ) {
 }
 
 func (m *MetricsNetCli) UploadStatics(metrics RecodeMetrics) {
+
 	m.metrics2send <- metrics
 }
 
 func (m *MetricsNetCli) Exit() {
 	err := m.conn.Close()
 	if err != nil {
-		fmt.Println("%s connect err, %s", m.conn.RemoteAddr().String(), err)
+		fmt.Printf("%s connect err, %s", m.conn.RemoteAddr().String(), err)
 		return
 	}
 }

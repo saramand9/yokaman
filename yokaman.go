@@ -1,3 +1,4 @@
+// Package yokaman
 // yoka机器人事务统计客户端， 用于和服务端通讯
 package yokaman
 
@@ -23,37 +24,33 @@ type YoKaMan struct {
 
 	DataCli      *MetricsNetCli
 	CmdCli       *MetricsCmdCli
+	storeCli     *Localstorage
 	totalpkg     int64
 	totalpkgrecv int64
 	buffer       chan RequestMetrics
+	enableBackup bool
 }
 
 var instance *YoKaMan
 var once sync.Once
 
-/*
-func NewYoKaCLi(out io.Writer, prefix string, flag int) *YoKaMan {
-	l := new(Logger)
-	l.SetOutput(out)
-	l.SetPrefix(prefix)
-	l.SetFlags(flag)
-	return l
-}*/
-
 func YoKaManCli() *YoKaMan {
 	once.Do(func() {
 		instance = &YoKaMan{
-			cache:        NewCache(),
-			DataCli:      NewMetricsNetCli(),
-			CmdCli:       NewMetricsCmdCli(),
+			cache:   NewCache(),
+			DataCli: NewMetricsNetCli(),
+			CmdCli:  NewMetricsCmdCli(),
+			//storeCli: 	  NewStorage(),
 			totalpkg:     0,
 			totalpkgrecv: 0,
+			enableBackup: true,
 			buffer:       make(chan RequestMetrics, 1024*1024),
 		}
 	})
 	return instance
 }
 
+// SetTestInfo
 // 如果执行多次测试，需要提前设置好测试id，以便区分不同测试场景
 // testid:  每次测试的唯一id
 // nodeid:  每个机器人的id
@@ -62,7 +59,11 @@ func (m *YoKaMan) SetTestInfo(testid uint, nodeid ...uint) {
 	if len(nodeid) > 0 {
 		m.nodeid = int8(nodeid[0]) //暂时不会超过256
 	}
-	fmt.Println(m.nodeid)
+
+	m.storeCli = NewStorage(int(testid))
+	//m.storeCli.WriteMetrics()
+	m.storeCli.WriteHeader()
+	//fmt.Println(m.nodeid)
 }
 
 func (m *YoKaMan) SetMetricsSvrAddr(addr string) {
@@ -70,10 +71,14 @@ func (m *YoKaMan) SetMetricsSvrAddr(addr string) {
 	m.CmdCli.metricaddr = addr
 }
 
-// 预留，用于在性能不足时，做数据聚合
+// SetAggregation 预留，用于在性能不足时，做数据聚合
 // second:  表示多少秒内的数据做一次聚合。 注意如果做了数据聚合，StatMetrics中的robotid可能就不准确了
 func (m *YoKaMan) SetAggregation(second uint) {
 
+}
+
+func (m *YoKaMan) EnableBackup(flag bool) {
+	m.enableBackup = flag
 }
 
 func StatReqMetrics(m ReqMetrics) error {
@@ -81,7 +86,7 @@ func StatReqMetrics(m ReqMetrics) error {
 	return err
 }
 
-// 用于统计事务qps，成功率等
+// StatReqMetrics 用于统计事务qps，成功率等
 // trans :  	事务名字
 // reqtime:  请求时间， 以	time.Now().UnixMilli() 毫秒传入
 // resptime: 响应时间， 以	time.Now().UnixMilli() 毫秒传入
@@ -114,10 +119,16 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 		Code:    int8(m.Code),
 		Count:   1,
 	}
+
+	if cli.enableBackup {
+		cli.storeCli.WriteMetris(m)
+	}
+
 	cli.buffer <- metrics
 	return nil
 }
 
+// Start
 // 启动上传线程
 func (cli *YoKaMan) Start() error {
 	//链接metricssvr， 连不上则报错
@@ -128,6 +139,10 @@ func (cli *YoKaMan) Start() error {
 	}
 
 	cli.DataCli.ThreadSend()
+	if cli.enableBackup {
+		cli.storeCli.ThreadWrite()
+	}
+
 	metrictBuffSize := GetNetStructSize(RecodeMetrics{}) - GetNetStructSize(Protohead{})
 	go func() {
 		for v := range cli.buffer {
@@ -151,8 +166,10 @@ func (cli *YoKaMan) Start() error {
 	return nil
 }
 
-// 关闭上传线程
+// Stop 关闭停止测试
 func (cli *YoKaMan) Stop() error {
+	cli.CmdCli.StopTest(uint32(cli.testid))
 	cli.DataCli.Exit()
+	cli.storeCli.Close()
 	return nil
 }
