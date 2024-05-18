@@ -6,151 +6,130 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"net"
 	"time"
 )
 
-const MaxDelay = 100 //ms
-// 协议序号
-const ProtoRequestMetrics = 1
+// 最大延迟发送时间
+const MaxLatency = 100 //100毫秒
 
-type Protohead struct {
-	Len        int8 //
-	Protocolid int8 //协议id
+const MTU = 1440
+
+// 最大延迟发送包量
+var MaxLatencyPkg uint32
+
+func init() {
+	MaxLatencyPkg = uint32(math.Floor(float64(MTU / GetNetStructSize(RecodeMetrics{}))))
 }
 
-type RequestMetrics struct {
-	Transid int8 //后面扩展
-	Start   int64
-	End     int64 //微秒
-	Code    int8
-	Count   int16
-}
-
-type RecodeMetrics struct {
-	Protohead
-	Testid int8 //测试id
-	Nodeid int8 //机器人id
-	RequestMetrics
-}
-
-var Metrics2send chan RequestMetrics
+// 待发送队列最大值
+const MAX_CHAN_SIZE = (1024 * 1024)
 
 type MetricsNetCli struct {
-	conn net.Conn
-
-	buf        *bytes.Buffer
-	lastPkgIn  time.Time
-	stackedPkg uint32
-
-	totalSendPkg    uint32 //已发送的数据包
-	IntervalSendPkg uint32 //已发送的数据包
-
-	metrics_chan chan RecodeMetrics
-	// 创建消费端串行处理的Lockfree
-	//ring lockfree.Lockfree
+	conn         net.Conn      //tcp链接句柄
+	metricaddr   string        //metric svr 地址
+	buf          *bytes.Buffer //发送用的字节缓冲区
+	lastPkgIn    time.Time     //最近一次收到待发送业务包的时间戳，当时间超过MaxDelay立即发送
+	stackedPkg   uint32        //堆积的业务包量
+	totalSendPkg uint32        //已发送的数据包
+	//IntervalSendPkg uint32 //已发送的数据包
+	metrics2send chan RecodeMetrics //待发送缓冲区
 }
 
 func NewMetricsNetCli() *MetricsNetCli {
 	m := MetricsNetCli{}
-	dialer := net.Dialer{}
-	c, err := dialer.Dial("tcp", "127.0.0.1:2380")
-	if err != nil {
-		fmt.Printf("connect 10.225.21.227 failed\n")
-		return nil
-	}
-	m.conn = c
-	m.lastPkgIn = time.Unix(32500886400, 0) //默认设置一个极大的年份
-
-	m.metrics_chan = make(chan RecodeMetrics, 1024*1024)
-
+	m.metricaddr = "127.0.0.1"
+	m.lastPkgIn = time.Unix(32500886400, 0) //默认设置为3000年，仅当收到第一个待发送业务包时，开始计时
+	m.metrics2send = make(chan RecodeMetrics, MAX_CHAN_SIZE)
 	m.buf = new(bytes.Buffer)
 	m.stackedPkg = 0
 	//defer m.conn.Close()
 	return &m
 }
 
-func init() {
-	Metrics2send = make(chan RequestMetrics, 1024*1024)
+func (m *MetricsNetCli) ConnectSvr() error {
+	dialer := net.Dialer{}
+	c, err := dialer.Dial("tcp", fmt.Sprintf("%s:2380", m.metricaddr))
+	if err != nil {
+		fmt.Printf("connect metrics svr (%s) failed\n", m.metricaddr)
+		return nil
+	}
+	m.conn = c
+	return nil
 }
 
 func GetNetStructSize(data interface{}) int {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, data)
+	err := binary.Write(buf, binary.LittleEndian, data)
+	if err != nil {
+		fmt.Println(err)
+		return 0
+	}
 	return len(buf.Bytes())
 }
 
-// 这里的判断逻辑有2个，
-// 1. 如果这个包已经收到超过100ms了，那么发送
-// 2. 如果缓冲区已经满的差不多了，即发送. 这里需要根据并发来评估
-func (m *MetricsNetCli) Run1() {
-	/*ticker := time.NewTicker((MaxDelay / 2) * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			// 执行需要重复执行的代码
-			m.SendPackets()
-		}
-	}*/
+func (m *MetricsNetCli) reset() {
+	m.stackedPkg = 0
+	m.lastPkgIn = time.Unix(32500886400, 0) //默认设置一个极大的年份
 }
 
-// 客户端循环发包，要注意buf 和socket 是否是线程安全的 。 待测
-func (m *MetricsNetCli) Run( /*metrics_chan chan []RequestMetrics */ ) {
-	//
-	//count := 0
-	for true {
-		select {
-		case v, ok := <-m.metrics_chan:
-			if !ok {
-				fmt.Println("channel closed")
-				return
-			}
-			err := binary.Write(m.buf, binary.LittleEndian, v)
-			if err != nil {
-				fmt.Println(err)
-			}
-			m.stackedPkg++
-			m.totalSendPkg++
-
-			//fmt.Println("send pkg %d", m.stackedPkg)
-			if m.stackedPkg == 1 {
-				m.lastPkgIn = time.Now()
-			}
-			if m.stackedPkg >= 60 {
-				_, err := m.conn.Write(m.buf.Bytes())
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				m.stackedPkg = 0
-				m.lastPkgIn = time.Unix(32500886400, 0) //默认设置一个极大的年份
-				m.buf.Reset()
-			}
-			break
-		default:
-			//fmt.Println(m.lastPkgIn, m.stackedPkg)
-			if time.Since(m.lastPkgIn) > time.Duration(time.Millisecond*MaxDelay) {
-				m.lastPkgIn = time.Unix(32500886400, 0) //默认设置一个极大的年份
-				_, err := m.conn.Write(m.buf.Bytes())
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				m.stackedPkg = 0
-				m.buf.Reset()
-			}
-			break
-		}
-
+func (m *MetricsNetCli) realSend() {
+	_, err := m.conn.Write(m.buf.Bytes())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	m.buf.Reset()
+}
+func (m *MetricsNetCli) sendPkg(v RecodeMetrics) {
+	err := binary.Write(m.buf, binary.LittleEndian, v)
+	if err != nil {
+		fmt.Println(err)
+	}
+	m.stackedPkg++
+	m.totalSendPkg++
+	if m.stackedPkg == 1 {
+		m.lastPkgIn = time.Now()
+	}
+	if m.stackedPkg >= MaxLatencyPkg {
+		m.realSend()
+		m.reset()
 	}
 }
 
+// 客户端循环发包，要注意buf 和socket 是否是线程安全的 。 待测
+func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []RequestMetrics */ ) {
+	//
+	go func() {
+		for {
+			select {
+			case v, ok := <-m.metrics2send:
+				if !ok {
+					fmt.Println("net message channel closed")
+					return
+				}
+				m.sendPkg(v)
+				break
+			default:
+				if time.Since(m.lastPkgIn) > time.Duration(time.Millisecond*MaxLatency) {
+					m.realSend()
+					m.reset()
+				}
+				break
+			}
+		}
+	}()
+}
+
 func (m *MetricsNetCli) UploadStatics(metrics RecodeMetrics) {
-	m.metrics_chan <- metrics
+	m.metrics2send <- metrics
 }
 
 func (m *MetricsNetCli) Exit() {
-	m.conn.Close()
+	err := m.conn.Close()
+	if err != nil {
+		fmt.Println("%s connect err, %s", m.conn.RemoteAddr().String(), err)
+		return
+	}
 }

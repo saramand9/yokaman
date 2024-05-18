@@ -21,21 +21,34 @@ type YoKaMan struct {
 
 	cache *Cache
 
-	metricsNetCli *MetricsNetCli
-	totalpkg      int64
-	totalpkgrecv  int64
+	DataCli      *MetricsNetCli
+	CmdCli       *MetricsCmdCli
+	totalpkg     int64
+	totalpkgrecv int64
+	buffer       chan RequestMetrics
 }
 
 var instance *YoKaMan
 var once sync.Once
 
+/*
+func NewYoKaCLi(out io.Writer, prefix string, flag int) *YoKaMan {
+	l := new(Logger)
+	l.SetOutput(out)
+	l.SetPrefix(prefix)
+	l.SetFlags(flag)
+	return l
+}*/
+
 func YoKaManCli() *YoKaMan {
 	once.Do(func() {
 		instance = &YoKaMan{
-			cache:         NewCache(),
-			metricsNetCli: NewMetricsNetCli(),
-			totalpkg:      0,
-			totalpkgrecv:  0,
+			cache:        NewCache(),
+			DataCli:      NewMetricsNetCli(),
+			CmdCli:       NewMetricsCmdCli(),
+			totalpkg:     0,
+			totalpkgrecv: 0,
+			buffer:       make(chan RequestMetrics, 1024*1024),
 		}
 	})
 	return instance
@@ -44,15 +57,28 @@ func YoKaManCli() *YoKaMan {
 // 如果执行多次测试，需要提前设置好测试id，以便区分不同测试场景
 // testid:  每次测试的唯一id
 // nodeid:  每个机器人的id
-func (m *YoKaMan) SetTestInfo(testid uint, nodeid uint) {
+func (m *YoKaMan) SetTestInfo(testid uint, nodeid ...uint) {
 	m.testid = int8(testid) //暂时不会超过256
-	m.nodeid = int8(nodeid) //暂时不会超过256
+	if len(nodeid) > 0 {
+		m.nodeid = int8(nodeid[0]) //暂时不会超过256
+	}
+	fmt.Println(m.nodeid)
+}
+
+func (m *YoKaMan) SetMetricsSvrAddr(addr string) {
+	m.DataCli.metricaddr = addr
+	m.CmdCli.metricaddr = addr
 }
 
 // 预留，用于在性能不足时，做数据聚合
 // second:  表示多少秒内的数据做一次聚合。 注意如果做了数据聚合，StatMetrics中的robotid可能就不准确了
 func (m *YoKaMan) SetAggregation(second uint) {
 
+}
+
+func StatReqMetrics(m ReqMetrics) error {
+	err := YoKaManCli().StatReqMetrics(m)
+	return err
 }
 
 // 用于统计事务qps，成功率等
@@ -74,7 +100,7 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	id, err := cli.cache.Get(m.Trans)
 	//如果本地没有映射关系，需要跟svr去注册， 本地没有映射关系，则从服务器同步
 	if err != nil {
-		id, err = Register(m.Trans, uint32(cli.testid))
+		id, err = cli.CmdCli.RegisterRequest(m.Trans, uint32(cli.testid))
 		if err != nil {
 			return err
 		}
@@ -88,38 +114,45 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 		Code:    int8(m.Code),
 		Count:   1,
 	}
-	Metrics2send <- metrics
+	cli.buffer <- metrics
 	return nil
 }
 
 // 启动上传线程
 func (cli *YoKaMan) Start() error {
-
-	go cli.metricsNetCli.Run()
-	metrictBuffSize := GetNetStructSize(RecodeMetrics{}) - GetNetStructSize(Protohead{})
-
-	for v := range Metrics2send {
-		cli.totalpkg++
-		if cli.totalpkg%1000000 == 0 {
-			fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)
-		}
-
-		pkg2send := RecodeMetrics{
-			Protohead: Protohead{
-				Len:        int8(metrictBuffSize),
-				Protocolid: ProtoRequestMetrics,
-			},
-			Testid:         cli.testid,
-			Nodeid:         cli.nodeid,
-			RequestMetrics: v,
-		}
-		cli.metricsNetCli.UploadStatics(pkg2send)
+	//链接metricssvr， 连不上则报错
+	err := cli.DataCli.ConnectSvr()
+	if err != nil {
+		fmt.Println("connect server err ", err)
+		return err
 	}
+
+	cli.DataCli.ThreadSend()
+	metrictBuffSize := GetNetStructSize(RecodeMetrics{}) - GetNetStructSize(Protohead{})
+	go func() {
+		for v := range cli.buffer {
+			cli.totalpkg++
+			if cli.totalpkg%1000000 == 0 {
+				fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)
+			}
+
+			pkg2send := RecodeMetrics{
+				Protohead: Protohead{
+					Len:        int8(metrictBuffSize),
+					Protocolid: ProtoRequestMetrics,
+				},
+				Testid:         cli.testid,
+				Nodeid:         cli.nodeid,
+				RequestMetrics: v,
+			}
+			cli.DataCli.UploadStatics(pkg2send)
+		}
+	}()
 	return nil
 }
 
 // 关闭上传线程
 func (cli *YoKaMan) Stop() error {
-	cli.metricsNetCli.Exit()
+	cli.DataCli.Exit()
 	return nil
 }
