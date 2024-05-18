@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+const (
+	SUCCESS    = 0
+	FAILURE    = 1
+	NORESPONSE = 2
+)
+
 type ReqMetrics struct {
 	Trans    string
 	Reqtime  int64

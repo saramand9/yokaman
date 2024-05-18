@@ -9,27 +9,26 @@ import (
 func TestMap(t *testing.T) {
 
 	yokacli := yokaman.YoKaManCli()
-	//设置测试信息，所有数据针对testid独立
-	yokacli.SetTestInfo(1)
-	//设置服务器ip
-	//yokacli.SetMetricsSvrAddr("172.25.0.1")
-	yokacli.SetMetricsSvrAddr("127.0.0.1")
-	//启动客户端
-	yokacli.Start() //启动yoka上报客户端
+	yokacli.SetTestInfo(1) //设置testid, 所有数据是按照testid来区分计算的
 
-	for i := 0; i < 100; i++ {
+	yokacli.SetMetricsSvrAddr("172.25.0.1") //设置服务器ip
+
+	err := yokacli.Start() //启动数据上报客户端，在后台会启动线程上传
+	if err != nil {
+		return
+	}
+
+	for i := 0; i < 10; i++ {
 		req := yokaman.ReqMetrics{
 			Trans:    "login",
 			Reqtime:  time.Now().UnixMilli(),
 			Resptime: time.Now().UnixMilli(),
-			Code:     0,
+			Code:     yokaman.SUCCESS,
 			Robotid:  0,
 		}
 		yokacli.StatReqMetrics(req)
 		time.Sleep(time.Second)
 	}
-
-	time.Sleep(time.Second * 10)
 	return
 }
 

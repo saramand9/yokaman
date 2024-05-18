@@ -28,27 +28,40 @@
 </p>
 
 ## Features
-- 支持协议请求的成功/失败/无响应数统计
-- 
-- long list of [supported MIME types](supported_mimes.md)
-- possibility to [extend](https://pkg.go.dev/github.com/gabriel-vasile/mimetype#example-package-Extend) with other file formats
-- common file formats are prioritized
-- [text vs. binary files differentiation](https://pkg.go.dev/github.com/gabriel-vasile/mimetype#example-package-TextVsBinary)
-- safe for concurrent usage
+- 支持对协议数据成功/失败/无响应的统计
+- 支持对协议数据中位数，TP90, TP95, TP99, 平均值等实时计算
+- 支持协议数据自动备份
+- 支持本地备份文件上传解析
 
 ## Install
 ```bash
-go get github.com/gabriel-vasile/mimetype
+go get github.com/saramand9/yokaman
 ```
 
 ## Usage
 ```go
-mtype := mimetype.Detect([]byte)
-// OR
-mtype, err := mimetype.DetectReader(io.Reader)
-// OR
-mtype, err := mimetype.DetectFile("/path/to/file")
-fmt.Println(mtype.String(), mtype.Extension())
+	yokacli := yokaman.YoKaManCli()
+	yokacli.SetTestInfo(1) //设置testid, 所有数据是按照testid来区分计算的
+
+	yokacli.SetMetricsSvrAddr("172.25.0.1") //设置服务器ip
+
+	err := yokacli.Start() //启动数据上报客户端，在后台会启动线程上传
+	if err != nil {
+		return
+	}
+
+	for i := 0; i < 10; i++ {
+		req := yokaman.ReqMetrics{
+			Trans:    "login",
+			Reqtime:  time.Now().UnixMilli(),
+			Resptime: time.Now().UnixMilli(),
+			Code:     yokaman.SUCCESS,
+			Robotid:  0,
+		}
+		yokacli.StatReqMetrics(req)
+		time.Sleep(time.Second)
+	}
+	return
 ```
 See the [runnable Go Playground examples](https://pkg.go.dev/github.com/gabriel-vasile/mimetype#pkg-overview).
 
