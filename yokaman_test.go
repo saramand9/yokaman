@@ -1,6 +1,7 @@
 package yokaman_test
 
 import (
+	"fmt"
 	"github.com/saramand9/yokaman"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ func TestMap(t *testing.T) {
 
 	err := yokacli.Start() //启动数据上报客户端，在后台会启动线程上传
 	if err != nil {
+		fmt.Sprintf("start yoka client faild err %s", err)
+		t.Fail()
 		return
 	}
 

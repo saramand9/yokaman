@@ -53,7 +53,7 @@ func (m *MetricsNetCli) ConnectSvr() error {
 	c, err := dialer.Dial("tcp", fmt.Sprintf("%s:2380", m.metricaddr))
 	if err != nil {
 		fmt.Printf("connect metrics svr (%s) failed\n", m.metricaddr)
-		return nil
+		return err
 	}
 	m.conn = c
 	return nil

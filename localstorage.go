@@ -76,7 +76,7 @@ func (l *Localstorage) WriteHeader() {
 		log.Fatalf("failed writing record: %s", err)
 	}
 
-	log.Println("CSV file created successfully")
+	log.Printf("backup metrics created successfully")
 }
 
 // 客户端循环发包，要注意buf 和socket 是否是线程安全的 。 待测
@@ -95,7 +95,7 @@ func (l *Localstorage) ThreadWrite( /*metrics2send chan []RequestMetrics */ ) {
 			default:
 				if time.Since(l.lastPkgIn) > time.Duration(time.Millisecond*MaxWriteLatency) {
 					l.writer.Flush()
-					fmt.Printf("【%v】 over time, flush csv, num = %d\n", time.Now().Format("2006-01-02 15:04:05.00"), l.stackedPkg)
+					//fmt.Printf("【%v】 over time, flush csv, num = %d\n", time.Now().Format("2006-01-02 15:04:05.00"), l.stackedPkg)
 					l.reset()
 				} else {
 					time.Sleep(time.Nanosecond) //长期无数据，释放cpu
@@ -126,7 +126,7 @@ func (l *Localstorage) Write(metrics ReqMetrics) {
 		log.Fatalf("failed writing record: %s", err)
 	}
 
-	fmt.Printf("【%v】 write metrics, num = %d\n", time.Now().Format("2006-01-02 15:04:05.00"), l.stackedPkg)
+	//fmt.Printf("【%v】 write metrics, num = %d\n", time.Now().Format("2006-01-02 15:04:05.00"), l.stackedPkg)
 
 	if l.stackedPkg >= MaxLatencyWrite {
 		l.writer.Flush()

@@ -1,13 +1,13 @@
 <h1 align="center">
   yokaman cli
 </h1>
-
 <h4 align="center">
-  A package for detecting MIME types and extensions based on magic numbers
+  A package for yoka robot types and extensions based on magic numbers
 </h4>
 <h6 align="center">
   Goroutine safe, extensible, no C bindings
 </h6>
+
 
 <p align="center">
   <a href="https://travis-ci.org/gabriel-vasile/mimetype">
@@ -65,27 +65,20 @@ go get github.com/saramand9/yokaman
 ```
 See the [runnable Go Playground examples](https://pkg.go.dev/github.com/gabriel-vasile/mimetype#pkg-overview).
 
-## Usage'
-Only use libraries like **mimetype** as a last resort. Content type detection
-using magic numbers is slow, inaccurate, and non-standard. Most of the times
-protocols have methods for specifying such metadata; e.g., `Content-Type` header
-in HTTP and SMTP.
-
 ## FAQ
-Q: My file is in the list of [supported MIME types](supported_mimes.md) but
-it is not correctly detected. What should I do?
+**Q:** ReqTime/Resptime 填什么？
 
-A: Some file formats (often Microsoft Office documents) keep their signatures
-towards the end of the file. Try increasing the number of bytes used for detection
-with:
-```go
-mimetype.SetLimit(1024*1024) // Set limit to 1MB.
-// or
-mimetype.SetLimit(0) // No limit, whole file content used.
-mimetype.DetectFile("file.doc")
-```
-If increasing the limit does not help, please
-[open an issue](https://github.com/gabriel-vasile/mimetype/issues/new?assignees=&labels=&template=mismatched-mime-type-detected.md&title=).
+**A:** ReqTime/Resptime 分别填的是请求发送和收到相应时刻的时间戳，精确到毫秒
+
+
+
+**Q:** testid 是什么？ 怎么填？
+
+**A:** 每次测试对应的唯一id，即testid。 平台统计TP90, QPS的时间段，也以testid作为区分。  一般情况下，每次启动机器人都应该重新设置testid，
+
+但是仅是为了协议调试， 尚且不在乎TP90等统计值，也可以暂时不修改。
+
+
 
 ## Structure
 **mimetype** uses a hierarchical structure to keep the MIME type detection logic.
