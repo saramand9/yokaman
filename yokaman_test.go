@@ -10,6 +10,7 @@ import (
 func TestMap(t *testing.T) {
 
 	yokacli := yokaman.YoKaManCli()
+
 	yokacli.SetTestInfo(1) //设置testid, 所有数据是按照testid来区分计算的
 
 	yokacli.SetMetricsSvrAddr("172.25.0.1") //设置服务器ip
@@ -21,7 +22,7 @@ func TestMap(t *testing.T) {
 		return
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		req := yokaman.ReqMetrics{
 			Trans:    "login",
 			Reqtime:  time.Now().UnixMilli(),
@@ -32,6 +33,7 @@ func TestMap(t *testing.T) {
 		yokacli.StatReqMetrics(req)
 		time.Sleep(time.Second)
 	}
+	yokacli.Stop()
 	return
 }
 

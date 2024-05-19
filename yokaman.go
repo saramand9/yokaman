@@ -175,7 +175,7 @@ func (cli *YoKaMan) Start() error {
 // Stop 关闭停止测试
 func (cli *YoKaMan) Stop() error {
 	cli.CmdCli.StopTest(uint32(cli.testid))
-	cli.DataCli.Exit()
-	cli.storeCli.Close()
+	//cli.DataCli.Exit()
+	//cli.storeCli.Close()
 	return nil
 }

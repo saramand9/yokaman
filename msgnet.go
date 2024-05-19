@@ -56,11 +56,19 @@ func (m *MetricsCmdCli) RegisterRequest(transname string, testid uint32) (uint8,
 	return uint8(id), nil
 }
 
+type StopReq struct {
+	TestId int `json:"testid"`
+}
+
+type StopResp struct {
+	TestId int `json:"testid"`
+	code   int `json:"code"`
+}
+
 func (m *MetricsCmdCli) StopTest(testid uint32) (uint8, error) {
 	url := fmt.Sprintf("http://%s:2381/test/stop", m.metricaddr)
-
 	data := []byte(fmt.Sprintf(`{"nodeid": 0, "testid": %d}`, testid))
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(data))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return 0, err
@@ -77,12 +85,12 @@ func (m *MetricsCmdCli) StopTest(testid uint32) (uint8, error) {
 
 	defer resp.Body.Close()
 
-	var trans Response
+	var trans StopResp
 	err = json.NewDecoder(resp.Body).Decode(&trans)
 	if err != nil {
 		return 0xFF, err
 	}
-
-	id := trans.TransId
+	fmt.Println(trans)
+	id := trans.TestId
 	return uint8(id), nil
 }
