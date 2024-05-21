@@ -151,24 +151,39 @@ func (cli *YoKaMan) Start() error {
 
 	metrictBuffSize := GetNetStructSize(RecodeMetrics{}) - GetNetStructSize(Protohead{})
 	go func() {
-		for v := range cli.buffer {
-			cli.totalpkg++
-			if cli.totalpkg%1000000 == 0 {
-				fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)
+		for {
+			select {
+			case v, ok := <-cli.buffer:
+				if !ok {
+					fmt.Println("Request buffer closed")
+					return
+				}
+				cli.totalpkg++
+				if cli.totalpkg%1000000 == 0 {
+					fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)
+				}
+
+				pkg2send := RecodeMetrics{
+					Protohead: Protohead{
+						Len:        int8(metrictBuffSize),
+						Protocolid: ProtoRequestMetrics,
+					},
+					Testid:         cli.testid,
+					Nodeid:         cli.nodeid,
+					RequestMetrics: v,
+				}
+				cli.DataCli.UploadStatics(pkg2send)
+				break
+
+			default:
+				time.Sleep(time.Millisecond) //长期无数据，释放cpu
+				break
 			}
 
-			pkg2send := RecodeMetrics{
-				Protohead: Protohead{
-					Len:        int8(metrictBuffSize),
-					Protocolid: ProtoRequestMetrics,
-				},
-				Testid:         cli.testid,
-				Nodeid:         cli.nodeid,
-				RequestMetrics: v,
-			}
-			cli.DataCli.UploadStatics(pkg2send)
 		}
+
 	}()
+
 	return nil
 }
 

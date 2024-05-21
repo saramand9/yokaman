@@ -13,7 +13,7 @@ func TestMap(t *testing.T) {
 
 	yokacli.SetTestInfo(1) //设置testid, 所有数据是按照testid来区分计算的
 
-	yokacli.SetMetricsSvrAddr("172.25.0.1") //设置服务器ip
+	yokacli.SetMetricsSvrAddr("127.0.0.1") //设置服务器ip
 
 	err := yokacli.Start() //启动数据上报客户端，在后台会启动线程上传
 	if err != nil {
@@ -22,11 +22,11 @@ func TestMap(t *testing.T) {
 		return
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 100; i++ {
 		req := yokaman.ReqMetrics{
 			Trans:    "login",
 			Reqtime:  time.Now().UnixMilli(),
-			Resptime: time.Now().UnixMilli(),
+			Resptime: time.Now().UnixMilli() + 1000,
 			Code:     yokaman.SUCCESS,
 			Robotid:  0,
 		}

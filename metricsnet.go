@@ -116,7 +116,7 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []RequestMetrics */ ) {
 					m.realSend()
 					m.reset()
 				} else {
-					time.Sleep(time.Nanosecond) //长期无数据，释放cpu
+					time.Sleep(time.Millisecond) //长期无数据，释放cpu
 				}
 				break
 			}

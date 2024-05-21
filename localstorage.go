@@ -98,7 +98,7 @@ func (l *Localstorage) ThreadWrite( /*metrics2send chan []RequestMetrics */ ) {
 					//fmt.Printf("【%v】 over time, flush csv, num = %d\n", time.Now().Format("2006-01-02 15:04:05.00"), l.stackedPkg)
 					l.reset()
 				} else {
-					time.Sleep(time.Nanosecond) //长期无数据，释放cpu
+					time.Sleep(time.Millisecond) //长期无数据，释放cpu
 				}
 				break
 			}
