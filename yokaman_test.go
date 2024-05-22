@@ -11,7 +11,7 @@ func TestMap(t *testing.T) {
 
 	yokacli := yokaman.YoKaManCli()
 
-	yokacli.SetTestInfo(1) //设置testid, 所有数据是按照testid来区分计算的
+	yokacli.SetTestInfo(2, 10) //设置testid, 所有数据是按照testid来区分计算的
 
 	yokacli.SetMetricsSvrAddr("127.0.0.1") //设置服务器ip
 

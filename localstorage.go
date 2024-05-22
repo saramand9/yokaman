@@ -80,7 +80,7 @@ func (l *Localstorage) WriteHeader() {
 }
 
 // 客户端循环发包，要注意buf 和socket 是否是线程安全的 。 待测
-func (l *Localstorage) ThreadWrite( /*metrics2send chan []RequestMetrics */ ) {
+func (l *Localstorage) ThreadWrite( /*metrics2send chan []NetReqMetrics */ ) {
 	//
 	go func() {
 		for {

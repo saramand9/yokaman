@@ -33,7 +33,7 @@ type YoKaMan struct {
 	storeCli     *Localstorage
 	totalpkg     int64
 	totalpkgrecv int64
-	buffer       chan RequestMetrics
+	buffer       chan NetReqMetrics
 	enableBackup bool
 }
 
@@ -50,7 +50,7 @@ func YoKaManCli() *YoKaMan {
 			totalpkg:     0,
 			totalpkgrecv: 0,
 			enableBackup: true,
-			buffer:       make(chan RequestMetrics, 1024*1024),
+			buffer:       make(chan NetReqMetrics, 1024*1024),
 		}
 	})
 	return instance
@@ -105,7 +105,6 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	cli.totalpkgrecv++
 	if cli.totalpkgrecv%1000000 == 0 {
 		fmt.Printf("【%v】 %d metrics to start\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkgrecv)
-
 	}
 
 	id, err := cli.cache.Get(m.Trans)
@@ -118,7 +117,7 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 		cli.cache.Set(m.Trans, id)
 	}
 
-	metrics := RequestMetrics{
+	metrics := NetReqMetrics{
 		Transid: int8(id),
 		Start:   m.Reqtime,
 		End:     m.Resptime,
@@ -149,7 +148,7 @@ func (cli *YoKaMan) Start() error {
 		cli.storeCli.ThreadWrite()
 	}
 
-	metrictBuffSize := GetNetStructSize(RecodeMetrics{}) - GetNetStructSize(Protohead{})
+	metrictBuffSize := GetNetStructSize(NetMetrics{}) - GetNetStructSize(Protohead{})
 	go func() {
 		for {
 			select {
@@ -163,14 +162,14 @@ func (cli *YoKaMan) Start() error {
 					fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)
 				}
 
-				pkg2send := RecodeMetrics{
+				pkg2send := NetMetrics{
 					Protohead: Protohead{
 						Len:        int8(metrictBuffSize),
 						Protocolid: ProtoRequestMetrics,
 					},
-					Testid:         cli.testid,
-					Nodeid:         cli.nodeid,
-					RequestMetrics: v,
+					Testid:        cli.testid,
+					Nodeid:        cli.nodeid,
+					NetReqMetrics: v,
 				}
 				cli.DataCli.UploadStatics(pkg2send)
 				break

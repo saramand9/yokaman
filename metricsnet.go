@@ -20,7 +20,7 @@ const MTU = 1440
 var MaxLatencyPkg uint32
 
 func init() {
-	MaxLatencyPkg = uint32(math.Floor(float64(MTU / GetNetStructSize(RecodeMetrics{}))))
+	MaxLatencyPkg = uint32(math.Floor(float64(MTU / GetNetStructSize(NetMetrics{}))))
 }
 
 // 待发送队列最大值
@@ -34,14 +34,14 @@ type MetricsNetCli struct {
 	stackedPkg   uint32        //堆积的业务包量
 	totalSendPkg uint32        //已发送的数据包
 	//IntervalSendPkg uint32 //已发送的数据包
-	metrics2send chan RecodeMetrics //待发送缓冲区
+	metrics2send chan NetMetrics //待发送缓冲区
 }
 
 func NewMetricsNetCli() *MetricsNetCli {
 	m := MetricsNetCli{}
 	m.metricaddr = "127.0.0.1"
 	m.lastPkgIn = time.Unix(32500886400, 0) //默认设置为3000年，仅当收到第一个待发送业务包时，开始计时
-	m.metrics2send = make(chan RecodeMetrics, MAX_CHAN_SIZE)
+	m.metrics2send = make(chan NetMetrics, MAX_CHAN_SIZE)
 	m.buf = new(bytes.Buffer)
 	m.stackedPkg = 0
 	//defer m.conn.Close()
@@ -82,7 +82,7 @@ func (m *MetricsNetCli) realSend() {
 	}
 	m.buf.Reset()
 }
-func (m *MetricsNetCli) sendPkg(v RecodeMetrics) {
+func (m *MetricsNetCli) sendPkg(v NetMetrics) {
 	err := binary.Write(m.buf, binary.LittleEndian, v)
 	if err != nil {
 		fmt.Println(err)
@@ -99,7 +99,7 @@ func (m *MetricsNetCli) sendPkg(v RecodeMetrics) {
 }
 
 // 客户端循环发包，要注意buf 和socket 是否是线程安全的 。 待测
-func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []RequestMetrics */ ) {
+func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []NetReqMetrics */ ) {
 	//
 	go func() {
 		for {
@@ -124,8 +124,7 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []RequestMetrics */ ) {
 	}()
 }
 
-func (m *MetricsNetCli) UploadStatics(metrics RecodeMetrics) {
-
+func (m *MetricsNetCli) UploadStatics(metrics NetMetrics) {
 	m.metrics2send <- metrics
 }
 
