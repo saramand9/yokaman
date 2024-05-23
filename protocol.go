@@ -17,13 +17,13 @@ type NetReqMetrics struct {
 	Start   int64
 	End     int64 //微秒
 	Code    int8
-	Count   int16
+	//Count   int16
 }
 
 type NetMetrics struct {
 	Protohead
-	Testid int8 //测试id
-	Nodeid int8 //机器人id
+	Testid int32 //测试id
+	//Nodeid int8 //机器人id
 	NetReqMetrics
 }
 

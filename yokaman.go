@@ -23,8 +23,8 @@ type ReqMetrics struct {
 }
 
 type YoKaMan struct {
-	testid int8 //测试id
-	nodeid int8 //机器
+	testid int32 //测试id
+	nodeid int8  //机器
 
 	cache *Cache
 
@@ -60,13 +60,13 @@ func YoKaManCli() *YoKaMan {
 // 如果执行多次测试，需要提前设置好测试id，以便区分不同测试场景
 // testid:  每次测试的唯一id
 // nodeid:  每个机器人的id
-func (m *YoKaMan) SetTestInfo(testid uint, nodeid ...uint) {
-	m.testid = int8(testid) //暂时不会超过256
+func (m *YoKaMan) SetTestInfo(testid int32, nodeid ...uint) {
+	m.testid = testid //暂时不会超过256
 	if len(nodeid) > 0 {
 		m.nodeid = int8(nodeid[0]) //暂时不会超过256
 	}
 
-	m.storeCli = NewStorage(int(testid))
+	m.storeCli = NewStorage(testid)
 	//m.storeCli.WriteMetrics()
 	m.storeCli.WriteHeader()
 	//fmt.Println(m.nodeid)
@@ -122,7 +122,7 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 		Start:   m.Reqtime,
 		End:     m.Resptime,
 		Code:    int8(m.Code),
-		Count:   1,
+		//Count:   1,
 	}
 
 	if cli.enableBackup {
@@ -167,8 +167,8 @@ func (cli *YoKaMan) Start() error {
 						Len:        int8(metrictBuffSize),
 						Protocolid: ProtoRequestMetrics,
 					},
-					Testid:        cli.testid,
-					Nodeid:        cli.nodeid,
+					Testid: cli.testid,
+					//Nodeid:        cli.nodeid,
 					NetReqMetrics: v,
 				}
 				cli.DataCli.UploadStatics(pkg2send)
@@ -178,9 +178,7 @@ func (cli *YoKaMan) Start() error {
 				time.Sleep(time.Millisecond) //长期无数据，释放cpu
 				break
 			}
-
 		}
-
 	}()
 
 	return nil

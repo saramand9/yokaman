@@ -22,7 +22,7 @@ var storage_once sync.Once
 
 type Localstorage struct {
 	filepath      string
-	testid        int
+	testid        int32
 	file          *os.File
 	writer        *csv.Writer
 	metrics2write chan ReqMetrics
@@ -30,7 +30,7 @@ type Localstorage struct {
 	stackedPkg    uint32    //堆积的业务包量
 }
 
-func NewStorage(testid int) *Localstorage {
+func NewStorage(testid int32) *Localstorage {
 	storage_once.Do(func() {
 		handler = &Localstorage{
 			testid: testid,

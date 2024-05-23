@@ -10,9 +10,7 @@ import (
 func TestMap(t *testing.T) {
 
 	yokacli := yokaman.YoKaManCli()
-
-	yokacli.SetTestInfo(2, 10) //设置testid, 所有数据是按照testid来区分计算的
-
+	yokacli.SetTestInfo(200000, 10)        //设置testid, 所有数据是按照testid来区分计算的
 	yokacli.SetMetricsSvrAddr("127.0.0.1") //设置服务器ip
 
 	err := yokacli.Start() //启动数据上报客户端，在后台会启动线程上传
