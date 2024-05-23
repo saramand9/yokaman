@@ -1,10 +1,13 @@
 package yokaman
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 type Cache struct {
 	cache map[string]uint8
-	//mu    sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewCache() *Cache {
@@ -14,8 +17,8 @@ func NewCache() *Cache {
 }
 
 func (c *Cache) Set(key string, value uint8) {
-	/*c.mu.Lock()
-	defer c.mu.Unlock()*/
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.cache[key] = value
 }
 

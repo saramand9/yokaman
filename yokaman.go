@@ -180,7 +180,6 @@ func (cli *YoKaMan) Start() error {
 			}
 		}
 	}()
-
 	return nil
 }
 
