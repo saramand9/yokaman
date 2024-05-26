@@ -1,9 +1,7 @@
 package yokaman
 
-import (
-	"errors"
-	"sync"
-)
+import "errors"
+import "sync"
 
 type Cache struct {
 	cache map[string]uint8
@@ -23,8 +21,8 @@ func (c *Cache) Set(key string, value uint8) {
 }
 
 func (c *Cache) Get(key string) (uint8, error) {
-	/*c.mu.RLock()
-	defer c.mu.RUnlock()*/
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	value, _ := c.cache[key]
 	if _, ok := c.cache[key]; ok {

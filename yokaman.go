@@ -35,6 +35,7 @@ type YoKaMan struct {
 	totalpkgrecv int64
 	buffer       chan NetReqMetrics
 	enableBackup bool
+	moniterBuffSize int
 }
 
 var instance *YoKaMan
@@ -110,6 +111,9 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	id, err := cli.cache.Get(m.Trans)
 	//如果本地没有映射关系，需要跟svr去注册， 本地没有映射关系，则从服务器同步
 	if err != nil {
+	/*	m.mu.Lock()
+		defer m.mu.Unlock()*/
+
 		id, err = cli.CmdCli.RegisterRequest(m.Trans, uint32(cli.testid))
 		if err != nil {
 			return err
@@ -128,6 +132,7 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	if cli.enableBackup {
 		cli.storeCli.WriteMetris(m)
 	}
+	cli.moniterBuffSize++
 
 	cli.buffer <- metrics
 	return nil
@@ -148,6 +153,20 @@ func (cli *YoKaMan) Start() error {
 		cli.storeCli.ThreadWrite()
 	}
 
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Printf("【%v】 req buff size %d \n", time.Now().Format("2006-01-02 15:04:05.00"),
+					cli.moniterBuffSize)
+				break
+				// 在这里写入打印数据的逻辑
+			}
+		}
+	}()
+
+
 	metrictBuffSize := GetNetStructSize(NetMetrics{}) - GetNetStructSize(Protohead{})
 	go func() {
 		for {
@@ -157,6 +176,8 @@ func (cli *YoKaMan) Start() error {
 					fmt.Println("Request buffer closed")
 					return
 				}
+				cli.moniterBuffSize--
+
 				cli.totalpkg++
 				if cli.totalpkg%1000000 == 0 {
 					fmt.Printf("【%v】hanlde %d metrics\n", time.Now().Format("2006-01-02 15:04:05.00"), cli.totalpkg)

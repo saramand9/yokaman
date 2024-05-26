@@ -1,7 +1,7 @@
 package yokaman
 
 // 协议序号
-const ProtoStart = 1 //註冊這個項目
+//const ProtoStart = 1 //註冊這個項目
 const ProtoEnd = 2
 
 const ProtoRequestMetrics = 10 //上傳Request數據
