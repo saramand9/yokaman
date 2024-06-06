@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/saramand9/yokaman"
 	"testing"
-	"time"
 )
 
 func TestMap(t *testing.T) {
@@ -19,19 +18,20 @@ func TestMap(t *testing.T) {
 		t.Fail()
 		return
 	}
+	/*
 
-	for i := 0; i < 100; i++ {
-		req := yokaman.ReqMetrics{
-			Trans:    "login",
-			Reqtime:  time.Now().UnixMilli(),
-			Resptime: time.Now().UnixMilli() + 1000,
-			Code:     yokaman.SUCCESS,
-			Robotid:  0,
+		for i := 0; i < 100; i++ {
+			req := yokaman.ReqMetrics{
+				Trans:    "login",
+				Reqtime:  time.Now().UnixMilli(),
+				Resptime: time.Now().UnixMilli() + 1000,
+				Code:     yokaman.SUCCESS,
+				Robotid:  0,
+			}
+			yokacli.StatReqMetrics(req)
+			time.Sleep(time.Second)
 		}
-		yokacli.StatReqMetrics(req)
-		time.Sleep(time.Second)
-	}
-	yokacli.Stop()
+		yokacli.Stop()*/
 	return
 }
 

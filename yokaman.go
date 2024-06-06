@@ -28,13 +28,14 @@ type YoKaMan struct {
 
 	cache *Cache
 
-	DataCli      *MetricsNetCli
-	CmdCli       *MetricsCmdCli
-	storeCli     *Localstorage
-	totalpkg     int64
-	totalpkgrecv int64
-	buffer       chan NetReqMetrics
-	enableBackup bool
+	DataCli         *MetricsNetCli
+	CmdCli          *MetricsCmdCli
+	WebCli          *WebCli
+	storeCli        *Localstorage
+	totalpkg        int64
+	totalpkgrecv    int64
+	buffer          chan NetReqMetrics
+	enableBackup    bool
 	moniterBuffSize int
 }
 
@@ -47,6 +48,7 @@ func YoKaManCli() *YoKaMan {
 			cache:   NewCache(),
 			DataCli: NewMetricsNetCli(),
 			CmdCli:  NewMetricsCmdCli(),
+			WebCli:  NewWebCli(),
 			//storeCli: 	  NewStorage(),
 			totalpkg:     0,
 			totalpkgrecv: 0,
@@ -111,8 +113,8 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	id, err := cli.cache.Get(m.Trans)
 	//如果本地没有映射关系，需要跟svr去注册， 本地没有映射关系，则从服务器同步
 	if err != nil {
-	/*	m.mu.Lock()
-		defer m.mu.Unlock()*/
+		/*	m.mu.Lock()
+			defer m.mu.Unlock()*/
 
 		id, err = cli.CmdCli.RegisterRequest(m.Trans, uint32(cli.testid))
 		if err != nil {
@@ -138,9 +140,16 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	return nil
 }
 
+func (cli *YoKaMan) Start() error {
+
+	cli.WebCli.StartTest(1, "1")
+
+	return nil
+}
+
 // Start
 // 启动上传线程
-func (cli *YoKaMan) Start() error {
+func (cli *YoKaMan) Start1() error {
 	//链接metricssvr， 连不上则报错
 	err := cli.DataCli.ConnectSvr()
 	if err != nil {
@@ -165,7 +174,6 @@ func (cli *YoKaMan) Start() error {
 			}
 		}
 	}()
-
 
 	metrictBuffSize := GetNetStructSize(NetMetrics{}) - GetNetStructSize(Protohead{})
 	go func() {
