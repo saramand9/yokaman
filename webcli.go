@@ -19,10 +19,13 @@ type Response struct {
 */
 
 type WebCli struct {
-	webaddr string //metric svr 地址
-	mu      sync.Mutex
-	wg      sync.WaitGroup
-	ch      chan struct{}
+	webaddr   string //metric svr 地址
+	projectid uint
+	nodeid    string
+	mu        sync.Mutex
+	wg        sync.WaitGroup
+	ch        chan struct{}
+	reportid  uint
 }
 
 func NewWebCli() *WebCli {
@@ -42,31 +45,39 @@ type StartTestRequest struct {
 	StartTime int64    `json:"starttime" validate:"required"` //毫秒 UTC
 }
 
-type StartTestResponse struct {
-	NodeID    string   `json:"nodeid" validate:"required"`    //机器人的节点id
-	ProjectID uint     `json:"projectid" validate:"required"` //项目id
-	CaseName  string   `json:"casename" validate:"required"`  //测试用例名
-	RobotNum  uint     `json:"robotnum" validate:"required"`
-	TagList   []string `json:"taglist" validate:"required"` //字符串数组标签列表
-}
 type ResponseNew struct {
-	ReportID  uint `json:"reportid"`
-	NewReport int8 `json:"new_report"`
-	//Data     interface{} `json:"data"`
+	Msg  string `json:"msg"`
+	Data struct {
+		ReportID  int `json:"reportid"`
+		NewReport int `json:"new_report"`
+	} `json:"data"`
+	Cd int `json:"cd"`
 }
 
-func (m *WebCli) StartTest(projectID uint, NodeID string) (uint8, error) {
+type StopTestRequest struct {
+	NodeID    string `json:"nodeid" validate:"required"`    //机器人的节点id
+	ProjectID uint   `json:"projectid" validate:"required"` //项目id
+	ReportID  uint   `json:"reportid" validate:"required"`  //项目id
+}
+
+type StopTestResponse struct {
+	Msg  string `json:"msg"`
+	Data struct {
+		ProjectID uint `json:"projectid"`
+		ReportID  uint `json:"reportid"`
+		Status    int  `json:"status"`
+	} `json:"data"`
+	Cd int `json:"cd"`
+}
+
+func (m *WebCli) StartTest(projectID uint, NodeID string) (int, error) {
+	m.projectid = projectID
+	m.nodeid = NodeID
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	//defer m.wg.Done()
 	url := fmt.Sprintf("http://%s:23366/api/v1/test", m.webaddr)
-
-	//NodeID    string   `json:"nodeid" validate:"required"`    //机器人的节点id
-	//ProjectID uint     `json:"projectid" validate:"required"` //项目id
-	//CaseName  string   `json:"casename" validate:"required"`  //测试用例名
-	//RobotNum  uint     `json:"robotnum" validate:"required"`
-	//TagList   []string `json:"taglist" validate:"required"`   //字符串数组标签列表
-	//StartTime int64    `json:"starttime" validate:"required"` //毫秒 UTC
 
 	data := StartTestRequest{
 		NodeID:    NodeID,
@@ -83,13 +94,6 @@ func (m *WebCli) StartTest(projectID uint, NodeID string) (uint8, error) {
 		return 0, err
 	}
 
-	//data := []byte(fmt.Sprintf(`{"name": "%s", "testid": %d}`, transname, testid))
-	//req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
-	//if err != nil {
-	//	fmt.Println("Error creating request:", err)
-	//	return 0, err
-	//}
-
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -99,19 +103,16 @@ func (m *WebCli) StartTest(projectID uint, NodeID string) (uint8, error) {
 		return 0xFF, err
 	}
 	defer resp.Body.Close()
-	// 读取响应体
-
 	var trans ResponseNew
 	err = json.NewDecoder(resp.Body).Decode(&trans)
 	if err != nil {
 		fmt.Println("Decode faild")
 		return 0xFF, err
 	}
-
-	id := trans.ReportID
-	//m.ch <- struct{}{}
-
-	return uint8(id), nil
+	fmt.Printf("%+v\n", trans)
+	id := trans.Data.ReportID
+	m.reportid = uint(trans.Data.ReportID)
+	return id, nil
 }
 
 /*
@@ -124,10 +125,28 @@ type StopResp struct {
 	code   int `json:"code"`
 }*/
 
-func (m *WebCli) StopTest(testid uint32) (uint8, error) {
-	url := fmt.Sprintf("http://%s:2381/test/stop", m.webaddr)
-	data := []byte(fmt.Sprintf(`{"nodeid": 0, "testid": %d}`, testid))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+func (m *WebCli) StopTest( /*testid uint32*/ ) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	//defer m.wg.Done()
+	url := fmt.Sprintf("http://%s:23366/api/v1/test/1/stop", m.webaddr)
+
+	type StopTestRequest struct {
+		NodeID    string `json:"nodeid" validate:"required"`    //机器人的节点id
+		ProjectID uint   `json:"projectid" validate:"required"` //项目id
+		ReportID  uint   `json:"reportid" validate:"required"`  //项目id
+	}
+
+	data := StopTestRequest{
+		NodeID:    m.nodeid,
+		ProjectID: m.projectid,
+		ReportID:  m.reportid,
+	}
+
+	fmt.Printf("%+v\n", data)
+
+	jsonData, err := json.Marshal(data)
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return 0, err
@@ -141,15 +160,14 @@ func (m *WebCli) StopTest(testid uint32) (uint8, error) {
 		fmt.Println("Error making request:", err)
 		return 0xFF, err
 	}
-
 	defer resp.Body.Close()
-
-	var trans ResponseNew
+	var trans StopTestResponse
 	err = json.NewDecoder(resp.Body).Decode(&trans)
 	if err != nil {
+		fmt.Println("Decode faild")
 		return 0xFF, err
 	}
-	fmt.Println(trans)
-	id := trans.ReportID
-	return uint8(id), nil
+	fmt.Printf("%+v\n", trans)
+	status := trans.Data.Status
+	return status, nil
 }

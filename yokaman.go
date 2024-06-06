@@ -23,10 +23,10 @@ type ReqMetrics struct {
 }
 
 type YoKaMan struct {
-	testid int32 //测试id
-	nodeid int8  //机器
-
-	cache *Cache
+	testid    int32 //测试id
+	nodeid    int8  //机器
+	projectid int32
+	cache     *Cache
 
 	DataCli         *MetricsNetCli
 	CmdCli          *MetricsCmdCli
@@ -72,6 +72,18 @@ func (m *YoKaMan) SetTestInfo(testid int32, nodeid ...uint) {
 	m.storeCli = NewStorage(testid)
 	//m.storeCli.WriteMetrics()
 	m.storeCli.WriteHeader()
+	//fmt.Println(m.nodeid)
+}
+
+func (m *YoKaMan) SetProjectInfo(projectid int32, nodeid ...uint) {
+	m.projectid = projectid //暂时不会超过256
+	if len(nodeid) > 0 {
+		m.nodeid = int8(nodeid[0]) //暂时不会超过256
+	}
+
+	//m.storeCli = NewStorage(testid)
+	////m.storeCli.WriteMetrics()
+	//m.storeCli.WriteHeader()
 	//fmt.Println(m.nodeid)
 }
 
@@ -140,18 +152,26 @@ func (cli *YoKaMan) StatReqMetrics(m ReqMetrics) error {
 	return nil
 }
 
-func (cli *YoKaMan) Start() error {
-
-	cli.WebCli.StartTest(1, "1")
+func (cli *YoKaMan) Start1() error {
 
 	return nil
 }
 
 // Start
 // 启动上传线程
-func (cli *YoKaMan) Start1() error {
+func (cli *YoKaMan) Start() error {
+
+	reportid, err := cli.WebCli.StartTest(100, "1")
+	cli.projectid = int32(reportid)
+	cli.testid = int32(reportid)
+	if cli.enableBackup {
+		cli.storeCli = NewStorage(cli.testid)
+		//m.storeCli.WriteMetrics()
+		cli.storeCli.WriteHeader()
+	}
+
 	//链接metricssvr， 连不上则报错
-	err := cli.DataCli.ConnectSvr()
+	err = cli.DataCli.ConnectSvr()
 	if err != nil {
 		fmt.Println("connect server err ", err)
 		return err
@@ -215,6 +235,10 @@ func (cli *YoKaMan) Start1() error {
 // Stop 关闭停止测试
 func (cli *YoKaMan) Stop() error {
 	cli.CmdCli.StopTest(uint32(cli.testid))
+	_, err := cli.WebCli.StopTest()
+	if err != nil {
+		return err
+	}
 	//cli.DataCli.Exit()
 	//cli.storeCli.Close()
 	return nil

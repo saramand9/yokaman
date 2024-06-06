@@ -18,9 +18,8 @@ type Response struct {
 type MetricsCmdCli struct {
 	metricaddr string //metric svr 地址
 	mu         sync.Mutex
-	wg 			sync.WaitGroup
-	ch chan struct{}
-
+	wg         sync.WaitGroup
+	ch         chan struct{}
 }
 
 func NewMetricsCmdCli() *MetricsCmdCli {
@@ -31,7 +30,7 @@ func NewMetricsCmdCli() *MetricsCmdCli {
 	return &m
 }
 
-func (m* MetricsCmdCli) Register(transname string, testid uint32)  (uint8, error) {
+func (m *MetricsCmdCli) Register(transname string, testid uint32) (uint8, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	//defer m.wg.Done()
