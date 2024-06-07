@@ -25,7 +25,7 @@ type ReqMetrics struct {
 type YoKaMan struct {
 	testid    int32 //测试id
 	nodeid    int8  //机器
-	projectid int32
+	projectid uint
 	cache     *Cache
 
 	DataCli         *MetricsNetCli
@@ -75,7 +75,7 @@ func (m *YoKaMan) SetTestInfo(testid int32, nodeid ...uint) {
 	//fmt.Println(m.nodeid)
 }
 
-func (m *YoKaMan) SetProjectInfo(projectid int32, nodeid ...uint) {
+func (m *YoKaMan) SetProjectInfo(projectid uint, nodeid ...uint) {
 	m.projectid = projectid //暂时不会超过256
 	if len(nodeid) > 0 {
 		m.nodeid = int8(nodeid[0]) //暂时不会超过256
@@ -161,8 +161,8 @@ func (cli *YoKaMan) Start1() error {
 // 启动上传线程
 func (cli *YoKaMan) Start() error {
 
-	reportid, err := cli.WebCli.StartTest(100, "1")
-	cli.projectid = int32(reportid)
+	reportid, err := cli.WebCli.StartTest(cli.projectid, "1")
+	cli.projectid = uint(reportid)
 	cli.testid = int32(reportid)
 	if cli.enableBackup {
 		cli.storeCli = NewStorage(cli.testid)
