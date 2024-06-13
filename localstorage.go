@@ -48,22 +48,20 @@ func NewStorage(testid int32) *Localstorage {
 
 		handler.file, err = os.Create(fmt.Sprintf("%s/%d_metrics_%d.csv",
 			metricsdir, testid, time.Now().UnixMilli()))
+		defer handler.file.Close()
 		if err != nil {
 			log.Fatalf("failed creating file: %s", err)
 		}
 		handler.writer = csv.NewWriter(handler.file)
 		handler.metrics2write = make(chan ReqMetrics, 1024*1024)
-		handler.lastPkgIn = time.Unix(32500886400, 0) //默认设置为3000年
+		handler.lastPkgIn = time.Unix(32500886400, 0) //默
+
 	})
 	return handler
 }
 
 func (l *Localstorage) Close() {
-	err := l.file.Close()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	l.writer.Flush()
 }
 
 func (l *Localstorage) WriteHeader() {

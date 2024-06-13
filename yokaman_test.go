@@ -3,6 +3,7 @@ package yokaman_test
 import (
 	"fmt"
 	"github.com/saramand9/yokaman"
+	"go.uber.org/zap"
 	"testing"
 	"time"
 )
@@ -15,6 +16,7 @@ func TestMap(t *testing.T) {
 	yokacli.EnableBackup(false)
 	yokacli.SetMetricsSvrAddr("127.0.0.1") //设置服务器ip
 
+	zap.L().Info("welcome to test")
 	err := yokacli.Start() //启动数据上报客户端，在后台会启动线程上传
 	if err != nil {
 		fmt.Sprintf("start yoka client faild err %s", err)
@@ -22,7 +24,7 @@ func TestMap(t *testing.T) {
 		return
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100000000; i++ {
 		req := yokaman.ReqMetrics{
 			Trans:    "login",
 			Reqtime:  time.Now().UnixMilli(),

@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"go.uber.org/zap"
 	"math"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,7 +22,7 @@ const MTU = 1460
 var MaxLatencyPkg uint32
 
 func init() {
-	MaxLatencyPkg = uint32(math.Floor(float64(MTU / GetNetStructSize(NetMetrics{}))))
+	MaxLatencyPkg = uint32(math.Floor(float64(MTU / binary.Size((NetMetrics{})))))
 }
 
 // 待发送队列最大值
@@ -34,8 +36,8 @@ type MetricsNetCli struct {
 	stackedPkg   uint32        //堆积的业务包量
 	totalSendPkg uint32        //已发送的数据包
 	//IntervalSendPkg uint32 //已发送的数据包
-	metrics2send chan NetMetrics //待发送缓冲区
-	moniterBuffSize int
+	metrics2send  chan NetMetrics //待发送缓冲区
+	pkg2SendQSize uint64          //待发送的网络包
 }
 
 func NewMetricsNetCli() *MetricsNetCli {
@@ -50,25 +52,13 @@ func NewMetricsNetCli() *MetricsNetCli {
 }
 
 func (m *MetricsNetCli) ConnectSvr() error {
-	//dialer := net.Dialer{}
-	//c, err := dialer.Dial("tcp", fmt.Sprintf("%s:2380", m.metricaddr))
-	conn, err := net.DialTimeout("tcp",  fmt.Sprintf("%s:2380", m.metricaddr), 5*time.Second)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:2380", m.metricaddr), 5*time.Second)
 	if err != nil {
-		fmt.Printf("connect metrics svr (%s) failed\n", m.metricaddr)
+		zap.L().Error(fmt.Sprintf("connect metrics svr (%s) failed", m.metricaddr))
 		return err
 	}
 	m.conn = conn
 	return nil
-}
-
-func GetNetStructSize(data interface{}) int {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, data)
-	if err != nil {
-		fmt.Println(err)
-		return 0
-	}
-	return len(buf.Bytes())
 }
 
 func (m *MetricsNetCli) reset() {
@@ -77,8 +67,7 @@ func (m *MetricsNetCli) reset() {
 }
 
 func (m *MetricsNetCli) realSend() {
-	//m.conn.SetWriteDeadline(time.Now())
-	_, err := m.conn.Write(m.buf.Bytes())//这里可能卡一下
+	_, err := m.conn.Write(m.buf.Bytes()) //这里可能卡一下
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -95,7 +84,7 @@ func (m *MetricsNetCli) sendPkg(v NetMetrics) {
 	if m.stackedPkg == 1 {
 		m.lastPkgIn = time.Now()
 	}
-	if m.stackedPkg >= MaxLatencyPkg <<2 {
+	if m.stackedPkg >= MaxLatencyPkg<<2 {
 		m.realSend()
 		m.reset()
 	}
@@ -110,8 +99,8 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []NetReqMetrics */ ) {
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Printf("【%v】 stackedPkg = %d, send buff size %d， totoal send %d , qps = %.2f\n", time.Now().Format("2006-01-02 15:04:05.00", ),
-					m.stackedPkg, m.moniterBuffSize, m.totalSendPkg,  float64( m.totalSendPkg) / time.Since(now).Seconds())
+				fmt.Printf("【%v】 stackedPkg = %d, send buff size %d， totoal send %d , qps = %.2f\n", time.Now().Format("2006-01-02 15:04:05.00"),
+					m.stackedPkg, m.pkg2SendQSize, m.totalSendPkg, float64(m.totalSendPkg)/time.Since(now).Seconds())
 				break
 				// 在这里写入打印数据的逻辑
 			}
@@ -123,20 +112,21 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []NetReqMetrics */ ) {
 			select {
 			case v, ok := <-m.metrics2send:
 				if !ok {
+
 					fmt.Println("net message channel closed")
 					return
 				}
-				m.moniterBuffSize --
+				atomic.AddUint64(&m.pkg2SendQSize, ^uint64(0))
 				m.sendPkg(v)
 				break
 			default:
 				if time.Since(m.lastPkgIn) > time.Duration(time.Millisecond) {
 					m.realSend()
 					m.reset()
-				//	fmt.Println("有数据，但是缓冲区未满，定时发送")
+					//	fmt.Println("有数据，但是缓冲区未满，定时发送")
 
 				} else {
-				//	fmt.Println("长期无数据发送，sleep一下")
+					//	fmt.Println("长期无数据发送，sleep一下")
 					time.Sleep(time.Millisecond) //长期无数据，释放cpu
 				}
 				break
@@ -146,7 +136,7 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []NetReqMetrics */ ) {
 }
 
 func (m *MetricsNetCli) UploadStatics(metrics NetMetrics) {
-	m.moniterBuffSize ++
+	atomic.AddUint64(&m.pkg2SendQSize, 1)
 	m.metrics2send <- metrics
 }
 
