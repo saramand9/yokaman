@@ -99,7 +99,7 @@ func (m *MetricsNetCli) ThreadSend( /*metrics2send chan []NetReqMetrics */ ) {
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Printf("【%v】 stackedPkg = %d, send buff size %d， totoal send %d , qps = %.2f\n", time.Now().Format("2006-01-02 15:04:05.00"),
+				fmt.Printf("【%v】 stackedPkg = %d, send buff size %d, totoal send %d , qps = %.2f\n", time.Now().Format("2006-01-02 15:04:05.00"),
 					m.stackedPkg, m.pkg2SendQSize, m.totalSendPkg, float64(m.totalSendPkg)/time.Since(now).Seconds())
 				break
 				// 在这里写入打印数据的逻辑
